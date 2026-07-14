@@ -43,7 +43,6 @@ typedef struct {
     } data;
 } Metric;
 
-Metric* metric_create_app_feature(int out_res, int out_bitrate, int in_res, int in_bitrate);
-Metric* metric_create_system(int node_id, double cpu, double mem, const char* gpu_model, double gpu_util);
-Metric* metric_create_app_perf(int session_id, int pid, double avg_latency, double avg_fps);
-void    metric_destroy(Metric* m);   // destroy는 하나로 충분
+Metric metric_create_app_feature(int out_res, int out_bitrate, int in_res, int in_bitrate);
+Metric metric_create_system(int node_id, double cpu, double mem, const char* gpu_model, double gpu_util);
+Metric metric_create_app_perf(int session_id, int pid, double avg_latency, double avg_fps);
