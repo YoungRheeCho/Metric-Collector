@@ -7,9 +7,9 @@ typedef struct Channel Channel;
 
 struct Channel {
     const char* channel_id;
-    int  (*init)(Channel* self);
-    int  (*read)(Channel* self, void* buf, size_t max_count, size_t* out_count);
-    int  (*write)(Channel* self, const void* data, size_t count);
+    int (*init)(Channel* self);
+    int (*read)(Channel* self, void* buf, size_t max_count, size_t* out_count);
+    int (*write)(Channel* self, const void* data, size_t count);
     void (*close)(Channel* self);
     void* impl_data;
 };
