@@ -11,9 +11,9 @@ typedef enum {
 } ServerStatus;
 
 typedef struct {
-    char       ip[16];   /* "255.255.255.255" + NUL */
-    int        port;
-    atomic_int status;   /* ServerStatus 값, HAProxy가 원자적으로 갱신 */
+    char ip[16];
+    int port;
+    atomic_int status;
 } ServerSlot;
 
 #endif
