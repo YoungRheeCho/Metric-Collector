@@ -1,0 +1,4 @@
+struct Metric
+{
+    /* data */
+};
