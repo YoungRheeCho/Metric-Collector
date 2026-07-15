@@ -87,6 +87,7 @@ int main(int argc, char *argv[]) {
                 cfg.haproxy_shm_name);
         return 1;
     }
+    printf("[main] shared memory 연결 성공: %s\n", cfg.haproxy_shm_name);
 
     ServerList g_server_list;
     server_list_init(&g_server_list);
