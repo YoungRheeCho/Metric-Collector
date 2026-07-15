@@ -24,8 +24,7 @@ static int shm_channel_init(Channel *self) {
     ShmChannelState *st = (ShmChannelState *)self->impl_data;
     size_t total_size = st->element_size * st->max_elements;
 
-    int flags =
-        st->create ? (O_CREAT | O_RDWR) : (st->writable ? O_RDWR : O_RDONLY);
+    int flags = st->create ? (O_CREAT | O_RDWR) : (st->writable ? O_RDWR : O_RDONLY);
     st->fd = shm_open(st->shm_name, flags, 0666);
     if (st->fd == -1) {
         perror("shm_open");
@@ -88,8 +87,8 @@ static void shm_channel_close(Channel *self) {
 }
 
 // 생성자
-Channel *shm_channel_create(const char *shm_name, size_t element_size,
-                            size_t max_elements, int create, int writable) {
+Channel *shm_channel_create(const char *shm_name, size_t element_size, size_t max_elements,
+                            int create, int writable) {
     ShmChannelState *st = malloc(sizeof(ShmChannelState));
     if (!st)
         return NULL;
