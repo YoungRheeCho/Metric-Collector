@@ -1,6 +1,7 @@
 #include "metric.h"
+#include <string.h>
 
-Metric metric_create_app_feature(int out_res, int out_bitrate, int in_res, int in_bitrate){
+Metric metric_create_app_feature(int out_res, int out_bitrate, int in_res, int in_bitrate) {
     Metric m;
     m.type = METRIC_TYPE_APP_FEATURE;
     m.data.app_feature.output_resolution = out_res;
@@ -10,7 +11,8 @@ Metric metric_create_app_feature(int out_res, int out_bitrate, int in_res, int i
     return m;
 }
 
-Metric metric_create_system(int node_id, double cpu, double mem, const char* gpu_model, double gpu_util){
+Metric metric_create_system(int node_id, double cpu, double mem, const char *gpu_model,
+                            double gpu_util) {
     Metric m;
     m.type = METRIC_TYPE_SYSTEM;
     m.data.system.node_id = node_id;
@@ -21,7 +23,7 @@ Metric metric_create_system(int node_id, double cpu, double mem, const char* gpu
     return m;
 }
 
-Metric metric_create_app_perf(int session_id, int pid, double avg_latency, double avg_fps){
+Metric metric_create_app_perf(int session_id, int pid, double avg_latency, double avg_fps) {
     Metric m;
     m.type = METRIC_TYPE_APP_PERF;
     m.data.app_perf.session_id = session_id;
