@@ -2,6 +2,7 @@
 #define CHANNEL_H
 
 #include <stddef.h>
+#include <sys/types.h>
 
 typedef struct Channel Channel;
 
