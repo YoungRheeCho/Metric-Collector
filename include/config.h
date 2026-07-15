@@ -10,7 +10,7 @@ typedef struct {
     int collect_interval_sec;
     int refresh_interval_sec;
     char mlp_shm_name[64];
-    size_t mlp_ring_capacity;
+    //size_t mlp_ring_capacity;
 } Config;
 
 int config_load(const char *path, Config *out);

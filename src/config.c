@@ -60,7 +60,7 @@ int config_load(const char *path, Config *out) {
         } else if (strcmp(key, "mlp_shm_name") == 0) {
             strncpy(out->mlp_shm_name, value, sizeof(out->mlp_shm_name) - 1);
         } else if(strcmp(key, "refresh_interval_sec") == 0){
-            out->worker_pool_size = atoi(value);
+            out->refresh_interval_sec = atoi(value);
         }/*else if (strcmp(key, "mlp_ring_capacity") == 0) {
             out->mlp_ring_capacity = (size_t)atol(value);
         }*/
