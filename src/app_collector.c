@@ -34,9 +34,8 @@ typedef struct {
     atomic_size_t out_index;
 } AppCollectorState;
 
-static int fetch_metrics_from_server(const ServerSlot *server,
-                                     const AppCollectorConfig *cfg,
-                                     Metric *out_system, Metric *out_app_perf) {
+static int fetch_metrics_from_server(const ServerSlot *server, const AppCollectorConfig *cfg, Metric *out_system,
+                                     Metric *out_app_perf) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
         return -1;
@@ -60,10 +59,8 @@ static int fetch_metrics_from_server(const ServerSlot *server,
     }
 
     char request[256];
-    int req_len =
-        snprintf(request, sizeof(request),
-                 "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n",
-                 cfg->metrics_path, server->ip);
+    int req_len = snprintf(request, sizeof(request), "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n",
+                           cfg->metrics_path, server->ip);
     if (req_len < 0 || write(sock, request, (size_t)req_len) < 0) {
         close(sock);
         return -1;
@@ -72,8 +69,7 @@ static int fetch_metrics_from_server(const ServerSlot *server,
     char response[4096];
     ssize_t total = 0;
     ssize_t n;
-    while ((n = read(sock, response + total,
-                     sizeof(response) - (size_t)total - 1)) > 0) {
+    while ((n = read(sock, response + total, sizeof(response) - (size_t)total - 1)) > 0) {
         total += n;
         if (total >= (ssize_t)sizeof(response) - 1)
             break;
@@ -116,9 +112,7 @@ static void *worker_main(void *arg) {
 
             /*server에 접근해서 metric을 수집해옴(fetch)*/
             Metric sys_m, perf_m;
-            if (fetch_metrics_from_server(&pool->cur_servers[idx],
-                                          &pool->config, &sys_m,
-                                          &perf_m) == 0) {
+            if (fetch_metrics_from_server(&pool->cur_servers[idx], &pool->config, &sys_m, &perf_m) == 0) {
                 size_t out_idx = atomic_fetch_add(&pool->out_index, 2);
                 if (out_idx + 1 < pool->cur_max_count) {
                     pool->cur_out[out_idx] = sys_m;
@@ -139,8 +133,7 @@ static int app_init(Collector *self) {
     AppCollectorState *state = (AppCollectorState *)self->impl_data;
 
     server_list_init(state->config.server_list);
-    state->thread_count =
-        state->config.worker_pool_size > 0 ? state->config.worker_pool_size : 1;
+    state->thread_count = state->config.worker_pool_size > 0 ? state->config.worker_pool_size : 1;
     state->threads = malloc(sizeof(pthread_t) * (size_t)state->thread_count);
     if (!state->threads)
         return -1;
@@ -161,14 +154,12 @@ static int app_init(Collector *self) {
     return 0;
 }
 
-static int app_collect(Collector *self, Metric *out, size_t max_count,
-                       size_t *out_count) {
+static int app_collect(Collector *self, Metric *out, size_t max_count, size_t *out_count) {
     AppCollectorState *state = (AppCollectorState *)self->impl_data;
 
     ServerSlot servers[MAX_SERVERS];
     size_t server_count = 0;
-    server_list_snapshot(state->config.server_list, servers, MAX_SERVERS,
-                         &server_count);
+    server_list_snapshot(state->config.server_list, servers, MAX_SERVERS, &server_count);
 
     pthread_mutex_lock(&state->mutex);
     state->cur_servers = servers;
