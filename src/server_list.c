@@ -26,7 +26,14 @@ void server_list_destroy(ServerList *list) { pthread_mutex_destroy(&list->mutex)
 void *refresher_main(void *arg) {
     RefresherArgs *args = (RefresherArgs *)arg;
     while (*args->running) {
-        server_list_refresh(args->list, args->channel);
+        ServerSlot temp[MAX_SERVERS];
+        ssize_t result = args->channel->read(args->channel, temp, MAX_SERVERS);
+        if (result >= 0) {
+            pthread_mutex_lock(&args->list->mutex);
+            memcpy(args->list->servers, temp, (size_t)result * sizeof(ServerSlot));
+            args->list->count = (size_t)result;
+            pthread_mutex_unlock(&args->list->mutex);
+        }
         sleep((unsigned int)args->interval_sec);
     }
     return NULL;
