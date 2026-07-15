@@ -2,6 +2,7 @@
 #include <stdlib.h> // malloc (RefresherArgs 관련)
 #include <string.h> // memcpy
 #include <unistd.h> // sleep
+#include <stdio.h>
 
 int server_list_init(ServerList *list) {
     int r;
@@ -33,7 +34,7 @@ void *refresher_main(void *arg) {
             memcpy(args->list->servers, temp, (size_t)result * sizeof(ServerSlot));
             args->list->count = (size_t)result;
             pthread_mutex_unlock(&args->list->mutex);
-            
+
             printf("[refresher] 서버 목록 갱신됨 (%zu개)\n", (size_t)result);
             for (size_t i = 0; i < (size_t)result; i++) {
                 printf("  [%zu] ip=%s port=%d status=%d\n",
