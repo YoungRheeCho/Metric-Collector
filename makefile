@@ -11,7 +11,7 @@ SRCS := $(shell find $(SRC_DIR) -name '*.c')
 OBJS := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 DEPS := $(OBJS:.o=.d)
 
-.PHONY: all clean
+.PHONY: all clean rebuild
 
 all: $(TARGET)
 
@@ -24,6 +24,9 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
+
+# clean 하고 바로 이어서 처음부터 다시 빌드 (make rebuild)
+rebuild: clean all
 
 -include $(DEPS)
 
