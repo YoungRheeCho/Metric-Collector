@@ -1,7 +1,7 @@
 #include "metric.h"
 #include <string.h>
 
-Metric metric_create_app_feature(int out_res, int out_bitrate, int in_res, int in_bitrate) {
+/*Metric metric_create_app_feature(int out_res, int out_bitrate, int in_res, int in_bitrate) {
     Metric m;
     m.type = METRIC_TYPE_APP_FEATURE;
     m.data.app_feature.output_resolution = out_res;
@@ -30,5 +30,14 @@ Metric metric_create_app_perf(int session_id, int pid, double avg_latency, doubl
     m.data.app_perf.pid = pid;
     m.data.app_perf.avg_latency = avg_latency;
     m.data.app_perf.avg_fps = avg_fps;
+    return m;
+}*/
+
+Metric metric_create_system(int node_id, double cpu, double mem) {
+    Metric m;
+    m.type = METRIC_TYPE_SYSTEM;
+    m.data.system.node_id = node_id;
+    m.data.system.cpu_util = cpu;
+    m.data.system.memory_util = mem;
     return m;
 }

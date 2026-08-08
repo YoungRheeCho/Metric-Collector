@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package sysinfo;
+
+service SysInfoService {
+  //rpc GetSystemInfo (Empty) returns (SystemInfoResponse);
+  rpc StreamSystemInfo(Empty) returns (stream SystemInfoResponse);
+}
+
+message Empty {}
+
+message SystemInfoResponse {
+  double cpu_util_percent = 1;   // CPU 사용률 (%)
+  double mem_util_percent = 2;   // 메모리 사용률 (%)
+  double mem_total_mb = 3;       // 전체 메모리 (MB)
+  double mem_used_mb = 4;        // 사용 중인 메모리 (MB)
+}
