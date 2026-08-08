@@ -1,46 +1,69 @@
-CC      := gcc
-CFLAGS  := -Wall -Wextra -Wswitch -std=gnu11 -Iinclude -MMD -MP
-LDFLAGS := -lpthread -lrt
+CC       := gcc
+CXX      := g++
+CFLAGS   := -Wall -Wextra -Wswitch -std=gnu11 -Iinclude -MMD -MP
+CXXFLAGS := -Wall -Wextra -std=c++17 -Iinclude -Iproto_gen -MMD -MP \
+            $(shell pkg-config --cflags grpc++ protobuf)
+LDFLAGS  := -lpthread -lrt $(shell pkg-config --libs grpc++ protobuf) -ldl
 
-SRC_DIR   := src
-BUILD_DIR := build
-TARGET    := metric-collector
+SRC_DIR    := src
+PROTO_DIR  := proto
+GEN_DIR    := proto_gen
+BUILD_DIR  := build
+TARGET     := metric-collector
 
-# src/ 아래 모든 .c 파일 재귀적으로 찾기 (kubernetes/, mlp/ 등 하위 폴더 포함)
-SRCS := $(shell find $(SRC_DIR) -name '*.c')
-OBJS := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
+PROTOC          := protoc
+GRPC_CPP_PLUGIN := $(shell which grpc_cpp_plugin)
+
+# .proto → 생성될 파일 목록
+PROTO_SRC   := $(PROTO_DIR)/sysinfo.proto
+PROTO_GEN_SRCS := $(GEN_DIR)/sysinfo.pb.cc $(GEN_DIR)/sysinfo.grpc.pb.cc
+
+# 일반 C 소스
+SRCS_C := $(shell find $(SRC_DIR) -name '*.c')
+OBJS_C := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS_C))
+
+# C++ 소스 (wrapper.cpp 등)
+SRCS_CXX := $(shell find $(SRC_DIR) -name '*.cpp')
+OBJS_CXX := $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.o, $(SRCS_CXX))
+
+# proto 생성 소스 → 오브젝트
+OBJS_PROTO := $(patsubst $(GEN_DIR)/%.cc, $(BUILD_DIR)/%.o, $(PROTO_GEN_SRCS))
+
+OBJS := $(OBJS_C) $(OBJS_CXX) $(OBJS_PROTO)
 DEPS := $(OBJS:.o=.d)
 
 .PHONY: all clean rebuild
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+# 1) proto 코드 생성 (sysinfo.proto가 바뀌면 다시 생성됨)
+$(PROTO_GEN_SRCS): $(PROTO_SRC)
+	@mkdir -p $(GEN_DIR)
+	$(PROTOC) -I $(PROTO_DIR) --cpp_out=$(GEN_DIR) --grpc_out=$(GEN_DIR) \
+	    --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN) $(PROTO_SRC)
 
+# 2) 최종 링크는 반드시 g++ (C++ 오브젝트가 섞이므로)
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+
+# 3) 일반 .c 컴파일 (gcc)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
+# 4) .cpp 컴파일 (g++) — wrapper.cpp 등
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(PROTO_GEN_SRCS)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# clean 하고 바로 이어서 처음부터 다시 빌드 (make rebuild)
+# 5) proto가 생성한 .cc 컴파일 (g++), proto_gen 도 먼저 생성돼야 함
+$(BUILD_DIR)/%.o: $(GEN_DIR)/%.cc $(PROTO_GEN_SRCS)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD_DIR) $(GEN_DIR) $(TARGET)
+
 rebuild: clean all
 
 -include $(DEPS)
-
-
-#설명
-
-#- -Iinclude: 지난번 얘기한 대로, 어떤 하위 폴더의 .c든 #include "metric.h"처럼 상대 경로 없이 쓸 수 있게 해줘.
-#- -MMD -MP: 컴파일할 때 .d 파일(의존성 목록)을 자동 생성해서, 헤더 파일 하나만 고쳐도 그걸 include하는 .c 파일들이 자동으로 다시 컴파일돼. 이거 없으면 헤더만 고쳤을 때 make가 눈치 못 채고 재빌드를 안 해줘서 오래된 바이너리로 테스트하는 실수가 생길 수 있어.
-#- find $(SRC_DIR) -name '*.c': 재귀적으로 소스 찾기. kubernetes/, mlp/ 폴더가 생겨도 자동으로 포함돼.
-# - $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c: 패턴 규칙 — src/kubernetes/k8s_client.c → build/kubernetes/k8s_client.o처럼 폴더 구조를 그대로 유지하면서 오브젝트를 만들어줘.
-
-# 나중에 추가로 고려할 것
-
-# - tests/ 디렉토리가 실제로 채워지면 test 타겟을 별도로 추가하는 것도 고려.
-# - Debug/Release 구분하고 싶으면 CFLAGS에 -g -O0(디버그) / -O2(릴리즈)를 조건부로 넣는 방법도 있어.
-
-# 지금 규모(파일 몇 개)에서는 이 정도면 충분하고, 프로젝트 커지면 그때 확장하면 될 것 같아.
