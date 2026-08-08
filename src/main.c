@@ -105,57 +105,16 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    //refactoring: backend 여러 개를 사용하게 되면 collector N개, shm N개를 사용해야하므로 수정이 필요함
-    /*char backend_shm_names[MAX_BACKENDS][64];
-    int backend_count = discover_n2sl_backends(backend_shm_names, MAX_BACKENDS);
-    if (backend_count <= 0) {
-        fprintf(stderr, "ERROR: n2sl backend shm을 하나도 못 찾음\n");
-        return 1;
-    }
-
-    ServerList server_lists[MAX_BACKENDS];
-    Channel *channels[MAX_BACKENDS];
-    Collector *collectors[MAX_BACKENDS];
-    pthread_t refresher_threads[MAX_BACKENDS];
-    RefresherArgs refresher_args[MAX_BACKENDS];
-
-    for (int i = 0; i < backend_count; i++) {
-        server_list_init(&server_lists[i]);
-
-        channels[i] = shm_channel_create(backend_shm_names[i], sizeof(ServerSlot), MAX_SERVERS, 0, 0);
-        channels[i]->init(channels[i]);
-
-        refresher_args[i] = (RefresherArgs){channels[i], &server_lists[i], cfg.refresh_interval_sec, &running};
-        pthread_create(&refresher_threads[i], NULL, refresher_main, &refresher_args[i]);
-
-        AppCollectorConfig app_cfg = {.server_list = &server_lists[i], .worker_pool_size = cfg.worker_pool_size};
-        collectors[i] = app_collector_create(&app_cfg);
-        collectors[i]->init(collectors[i]);
-    }*/
-
-    // MLP 출력 채널
-    /*Channel *mlp_sink = shm_channel_create(cfg.mlp_shm_name, sizeof(Metric),
-                                           cfg.mlp_ring_capacity, 1, 1);
-    if (!mlp_sink || mlp_sink->init(mlp_sink) != 0) {
-        fprintf(stderr, "에러: MLP shared memory를 생성할 수 없습니다 (%s)\n",
-                cfg.mlp_shm_name);
-        server_source->close(server_source);
-        return 1;
-    }*/
-
     AppCollectorConfig app_cfg = {
         .server_list = &g_server_list,
-        .worker_pool_size = cfg.worker_pool_size,
     };
-    strncpy(app_cfg.metrics_path, cfg.metrics_path, sizeof(app_cfg.metrics_path) - 1);
 
     Collector *collector = app_collector_create(&app_cfg);
-    /*if (!collector || collector->init(collector) != 0) {
+    if (!collector || collector->init(collector) != 0) {
         fprintf(stderr, "에러: collector 초기화 실패\n");
-        mlp_sink->close(mlp_sink);
         server_source->close(server_source);
         return 1;
-    }*/
+    }
 
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);

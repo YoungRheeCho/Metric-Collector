@@ -1,5 +1,6 @@
 #include "app_collector.h"
 #include "shared_types.h"
+#include "wrapper.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -10,9 +11,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <unistd.h>
 
-typedef struct {
+/*typedef struct {
     AppCollectorConfig config;
 
     pthread_t *threads;
@@ -80,7 +80,7 @@ static int fetch_metrics_from_server(const ServerSlot *server, const AppCollecto
         return -1;
     response[total] = '\0';
 
-    /* TODO: response를 실제로 파싱해서 아래 값들을 채우기 */
+    // TODO: response를 실제로 파싱해서 아래 값들을 채우기
     *out_system = metric_create_system(0, 0.0, 0.0, "", 0.0);
     *out_app_perf = metric_create_app_perf(0, 0, 0.0, 0.0);
 
@@ -106,11 +106,11 @@ static void *worker_main(void *arg) {
         for (;;) {
             size_t idx = atomic_fetch_add(&pool->next_server_index, 1);
             if (idx >= pool->cur_server_count)
-                break;
+            break;
             if (atomic_load(&pool->cur_servers[idx].status) != SERVER_STATUS_UP)
-                continue;
+            continue;
 
-            /*server에 접근해서 metric을 수집해옴(fetch)*/
+            //server에 접근해서 metric을 수집해옴(fetch)
             Metric sys_m, perf_m;
             if (fetch_metrics_from_server(&pool->cur_servers[idx], &pool->config, &sys_m, &perf_m) == 0) {
                 size_t out_idx = atomic_fetch_add(&pool->out_index, 2);
@@ -127,27 +127,72 @@ static void *worker_main(void *arg) {
             pthread_cond_signal(&pool->cond_done);
         }
     }
+}*/
+
+typedef struct {
+    pthread_mutex_t mtx;
+    SystemInfo info; // wrapper.h의 구조체를 그대로 사용
+    int valid;
+} MetricSlot;
+
+// 스트림 하나(=서버 하나)를 관리하는 단위
+typedef struct {
+    char ip[16];
+    int port;
+    MetricSlot *slot;    // 이 스트림이 값을 채워넣을 캐시 슬롯
+    void *stream_handle; // start_stream()이 리턴한 핸들 (정리용)
+} StreamEntry;
+
+typedef struct {
+    AppCollectorConfig config;
+    size_t server_count;
+
+    MetricSlot *slots;    // 서버별 최신 metric 캐시 (mutex 포함)
+    StreamEntry *streams; // 서버별 stream_handle 등 관리용
+    pthread_mutex_t streams_mutex;
+
+    int shutdown; // 종료 중인지 플래그 (재연결 여부 판단용)
+} AppCollectorState;
+
+static void on_update(const SystemInfo *info, void *server_data) {
+    StreamEntry *entry = (StreamEntry *)server_data;
+
+    pthread_mutex_lock(&entry->slot->mtx);
+    entry->slot->info = *info;
+
+    printf("CPU 사용률: %.2f%% | 메모리 사용률: %.2f%% (%.1f MB / %.1f MB)\n", info->cpu_util_percent,
+           info->mem_util_percent, info->mem_used_mb, info->mem_total_mb);
+    entry->slot->valid = 1;
+    pthread_mutex_unlock(&entry->slot->mtx);
 }
 
 static int app_init(Collector *self) {
     AppCollectorState *state = (AppCollectorState *)self->impl_data;
-
+    pthread_mutex_init(&state->streams_mutex, NULL);
     server_list_init(state->config.server_list);
-    state->thread_count = state->config.worker_pool_size > 0 ? state->config.worker_pool_size : 1;
-    state->threads = malloc(sizeof(pthread_t) * (size_t)state->thread_count);
-    if (!state->threads)
+    ServerSlot servers[MAX_SERVERS];
+    size_t server_count = 0;
+    server_list_snapshot(state->config.server_list, servers, MAX_SERVERS, &server_count);
+
+    state->slots = calloc(server_count, sizeof(MetricSlot));
+    state->streams = calloc(server_count, sizeof(StreamEntry));
+    if (!state->slots || !state->streams)
         return -1;
+    state->server_count = server_count;
 
-    pthread_mutex_init(&state->mutex, NULL);
-    pthread_cond_init(&state->cond_start, NULL);
-    pthread_cond_init(&state->cond_done, NULL);
-    state->generation = 0;
-    state->shutdown = 0;
+    for (size_t i = 0; i < server_count; i++) {
+        pthread_mutex_init(&state->slots[i].mtx, NULL);
 
-    for (int i = 0; i < state->thread_count; i++) {
-        if (pthread_create(&state->threads[i], NULL, worker_main, state) != 0) {
-            fprintf(stderr, "app_collector: 워커 스레드 생성 실패 (%d)\n", i);
-            return -1;
+        strncpy(state->streams[i].ip, servers[i].ip, sizeof(state->streams[i].ip));
+        state->streams[i].port = servers[i].port;
+        state->streams[i].slot = &state->slots[i];
+
+        char addr[64];
+        snprintf(addr, sizeof(addr), "%s:%d", state->streams[i].ip, state->streams[i].port);
+
+        state->streams[i].stream_handle = start_stream(addr, on_update, &state->streams[i]);
+        if (!state->streams[i].stream_handle) {
+            fprintf(stderr, "app_collector: %s 스트림 시작 실패\n", addr);
         }
     }
 
@@ -156,33 +201,46 @@ static int app_init(Collector *self) {
 
 static int app_collect(Collector *self, Metric *out, size_t max_count, size_t *out_count) {
     AppCollectorState *state = (AppCollectorState *)self->impl_data;
+    size_t n = 0;
 
-    ServerSlot servers[MAX_SERVERS];
+    ServerSlot snapshot[MAX_SERVERS];
     size_t server_count = 0;
-    server_list_snapshot(state->config.server_list, servers, MAX_SERVERS, &server_count);
+    server_list_snapshot(state->config.server_list, snapshot, MAX_SERVERS, &server_count);
 
-    pthread_mutex_lock(&state->mutex);
-    state->cur_servers = servers;
-    state->cur_server_count = server_count;
-    atomic_store(&state->next_server_index, 0);
-    state->cur_out = out;
-    state->cur_max_count = max_count;
-    atomic_store(&state->out_index, 0);
-    state->active_workers = state->thread_count;
-    state->generation++;
-    pthread_cond_broadcast(&state->cond_start);
+    pthread_mutex_lock(&state->streams_mutex);
 
-    while (state->active_workers > 0) {
-        pthread_cond_wait(&state->cond_done, &state->mutex);
+    for (size_t i = 0; i < state->server_count && n < max_count; i++) {
+        int is_up = 0;
+        for (size_t j = 0; j < server_count; j++) {
+            if (strcmp(snapshot[j].ip, state->streams[i].ip) == 0 && snapshot[j].port == state->streams[i].port &&
+                atomic_load(&snapshot[j].status) == SERVER_STATUS_UP) {
+                is_up = 1;
+                break;
+            }
+        }
+        if (!is_up)
+            continue;
+
+        SystemInfo temp_info;
+        int is_valid;
+        pthread_mutex_lock(&state->slots[i].mtx);
+        is_valid = state->slots[i].valid;
+        if (is_valid)
+            temp_info = state->slots[i].info;
+        pthread_mutex_unlock(&state->slots[i].mtx);
+
+        if (is_valid) {
+            out[n++] = metric_create_system((int)i, temp_info.cpu_util_percent, temp_info.mem_util_percent);
+        }
     }
-    pthread_mutex_unlock(&state->mutex);
 
-    *out_count = atomic_load(&state->out_index);
+    pthread_mutex_unlock(&state->streams_mutex);
+    *out_count = n;
     return 0;
 }
 
 static void app_destroy(Collector *self) {
-    AppCollectorState *state = (AppCollectorState *)self->impl_data;
+    /*AppCollectorState *state = (AppCollectorState *)self->impl_data;
 
     pthread_mutex_lock(&state->mutex);
     state->shutdown = 1;
@@ -200,7 +258,7 @@ static void app_destroy(Collector *self) {
     pthread_cond_destroy(&state->cond_done);
 
     free(state);
-    free(self);
+    free(self);*/
 }
 
 Collector *app_collector_create(const AppCollectorConfig *config) {
