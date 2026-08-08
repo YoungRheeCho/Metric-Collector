@@ -12,10 +12,9 @@ typedef enum {
 
 // App Feature
 typedef struct {
-    int output_resolution;
-    int output_bitrate;
-    int input_resolution;
-    int input_bitrate;
+    char codec[128];
+    int target_FPS;
+    int target_resolution;
 } AppFeatureMetric;
 
 // System Metric
@@ -23,16 +22,21 @@ typedef struct {
     int node_id;
     double cpu_util;
     double memory_util;
-    char gpu_model[32];
-    double gpu_util;
+    //int consumer;
+    //double load_average;
+    //char gpu_model[32];
+    //double gpu_util;
 } SystemMetric;
 
 // App performance
 typedef struct {
-    int session_id;
-    int pid;
-    double avg_latency;
-    double avg_fps;
+    // int session_id;
+    // int pid;
+    // double avg_latency;
+    // double avg_fps;
+    int RTT;
+    double packet_loss_rate;
+    double available_Bitrate;
 } AppPerfMetric;
 
 // MLP와의 통신에 사용할 구조체
@@ -46,8 +50,9 @@ typedef struct {
 } Metric;
 
 Metric metric_create_app_feature(int out_res, int out_bitrate, int in_res, int in_bitrate);
-Metric metric_create_system(int node_id, double cpu, double mem, const char *gpu_model,
-                            double gpu_util);
+//Metric metric_create_system(int node_id, double cpu, double mem, const char *gpu_model,
+//                            double gpu_util);
+Metric metric_create_system(int node_id, double cpu, double mem);
 Metric metric_create_app_perf(int session_id, int pid, double avg_latency, double avg_fps);
 
 #endif
