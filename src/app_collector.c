@@ -160,8 +160,10 @@ static void on_update(const SystemInfo *info, void *server_data) {
     pthread_mutex_lock(&entry->slot->mtx);
     entry->slot->info = *info;
 
-    printf("CPU 사용률: %.2f%% | 메모리 사용률: %.2f%% (%.1f MB / %.1f MB)\n", info->cpu_util_percent,
+    printf("CPU 사용률: %.2f%% | 메모리 사용률: %.2f%% (%.1f MB / %.1f MB) | 이용자 수: %d명 시청중\n", info->cpu_util_percent,
            info->mem_util_percent, info->mem_used_mb, info->mem_total_mb);
+    
+    info->has_viewer_count ? printf("| 이용자 수: %d명 시청중\n", info->viewer_count) : printf("| [Node Data]\n");
     entry->slot->valid = 1;
     pthread_mutex_unlock(&entry->slot->mtx);
 }
@@ -169,7 +171,7 @@ static void on_update(const SystemInfo *info, void *server_data) {
 static int app_init(Collector *self) {
     AppCollectorState *state = (AppCollectorState *)self->impl_data;
     pthread_mutex_init(&state->streams_mutex, NULL);
-    server_list_init(state->config.server_list);
+    //server_list_init(state->config.server_list);
     ServerSlot servers[MAX_SERVERS];
     size_t server_count = 0;
     server_list_snapshot(state->config.server_list, servers, MAX_SERVERS, &server_count);

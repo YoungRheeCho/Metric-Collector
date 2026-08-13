@@ -80,30 +80,43 @@ int main(int argc, char *argv[]) {
     }
 
     // HAProxy 서버 목록 채널: 이미 존재하는 shared memory에서 읽어옴
-    Channel *server_source =
+    /*Channel *server_source =
         shm_channel_create(cfg.haproxy_shm_name, sizeof(ServerSlot), MAX_SERVERS, 0, 0);
     if (!server_source || server_source->init(server_source) != 0) {
         fprintf(stderr, "에러: HAProxy shared memory에 연결할 수 없습니다 (%s)\n",
                 cfg.haproxy_shm_name);
         return 1;
     }
-    printf("[main] shared memory 연결 성공: %s\n", cfg.haproxy_shm_name);
+    printf("[main] shared memory 연결 성공: %s\n", cfg.haproxy_shm_name);*/
 
     ServerList g_server_list;
     server_list_init(&g_server_list);
+    server_list_set(&g_server_list, cfg.servers, cfg.server_count);
+    if (server_list_set(&g_server_list, cfg.servers, cfg.server_count) != 0) {
+        fprintf(stderr, "에러: 서버 목록 설정 실패 (서버 개수 초과 가능성)\n");
+        return 1;
+    }
+    // ---- 테스트용 하드코딩 ----
+    // strncpy(g_server_list.servers[0].ip, "127.0.0.1", sizeof(g_server_list.servers[0].ip) - 1);
+    // g_server_list.servers[0].ip[sizeof(g_server_list.servers[0].ip) - 1] = '\0';
+    // g_server_list.servers[0].port = 50051;
+    // atomic_store(&g_server_list.servers[0].status, SERVER_STATUS_UP);
+    // g_server_list.count = 1;
+    // // -------------------------
 
-    RefresherArgs refresher_args = {
+    /*RefresherArgs refresher_args = {
         .channel = server_source,
         .list = &g_server_list,
         .interval_sec = cfg.refresh_interval_sec,
         .running = &running,
     };
+
     pthread_t refresher_thread;
     if (pthread_create(&refresher_thread, NULL, refresher_main, &refresher_args) != 0) {
         fprintf(stderr, "에러: 갱신 스레드 생성 실패\n");
         server_source->close(server_source);
         return 1;
-    }
+    }*/
 
     AppCollectorConfig app_cfg = {
         .server_list = &g_server_list,
@@ -112,7 +125,7 @@ int main(int argc, char *argv[]) {
     Collector *collector = app_collector_create(&app_cfg);
     if (!collector || collector->init(collector) != 0) {
         fprintf(stderr, "에러: collector 초기화 실패\n");
-        server_source->close(server_source);
+        //server_source->close(server_source);
         return 1;
     }
 
@@ -130,7 +143,7 @@ int main(int argc, char *argv[]) {
     }
 
     collector->destroy(collector);
-    server_source->close(server_source);
+    //server_source->close(server_source);
     // mlp_sink->close(mlp_sink);
     return 0;
 }

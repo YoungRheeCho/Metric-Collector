@@ -2,6 +2,7 @@
 #define CONFIG_H
 
 #include <stddef.h>
+#include "server_list.h"
 
 typedef struct {
     char haproxy_shm_name[64];
@@ -11,6 +12,8 @@ typedef struct {
     int refresh_interval_sec;
     char mlp_shm_name[64];
     //size_t mlp_ring_capacity;
+    ServerSlot servers[MAX_SERVERS];
+    size_t server_count;
 } Config;
 
 int config_load(const char *path, Config *out);

@@ -11,6 +11,20 @@ int server_list_init(ServerList *list) {
     return r;
 }
 
+// server_list.c
+int server_list_set(ServerList *list, const ServerSlot *servers, size_t count) {
+    if (count > MAX_SERVERS) {
+        return -1;   // 혹은 count를 MAX_SERVERS로 clamp
+    }
+
+    pthread_mutex_lock(&list->mutex);
+    memcpy(list->servers, servers, count * sizeof(ServerSlot));
+    list->count = count;
+    pthread_mutex_unlock(&list->mutex);
+
+    return 0;
+}
+
 int server_list_snapshot(ServerList *list, ServerSlot *out, size_t max, size_t *out_count) {
     pthread_mutex_lock(&list->mutex);
     size_t n = list->count < max ? list->count : max;
