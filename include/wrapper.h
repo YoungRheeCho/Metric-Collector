@@ -5,11 +5,17 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+#include <stdint.h>
+
 typedef struct {
     double cpu_util_percent;
     double mem_util_percent;
     double mem_total_mb;
     double mem_used_mb;
+
+    bool has_viewer_count;      // 값이 존재하는지
+    uint32_t viewer_count;      // 실제 값 (has_viewer_count가 true일 때만 유효)
 } SystemInfo;
 
 // 서버가 push할 때마다 이 콜백이 한 번씩 호출된다.

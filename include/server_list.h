@@ -23,6 +23,7 @@ typedef struct {
 } RefresherArgs;
 
 int server_list_init(ServerList *list);
+int server_list_set(ServerList *list, const ServerSlot *servers, size_t count);
 int server_list_snapshot(ServerList *list, ServerSlot *out, size_t max, size_t *out_count);
 void server_list_destroy(ServerList *list);
 void* refresher_main(void* arg);

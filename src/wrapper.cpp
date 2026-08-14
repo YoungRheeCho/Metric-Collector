@@ -41,6 +41,12 @@ public:
         info.mem_util_percent = response_.mem_util_percent();
         info.mem_total_mb = response_.mem_total_mb();
         info.mem_used_mb = response_.mem_used_mb();
+        info.has_viewer_count = response_.has_viewer_count();
+        if (info.has_viewer_count) {
+            info.viewer_count = response_.viewer_count();
+        } else {
+            info.viewer_count = 0;
+        }
         callback_(&info, user_data_);
 
         StartRead(&response_);

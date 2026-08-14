@@ -40,7 +40,9 @@ all: $(TARGET)
 $(PROTO_GEN_SRCS): $(PROTO_SRC)
 	@mkdir -p $(GEN_DIR)
 	$(PROTOC) -I $(PROTO_DIR) --cpp_out=$(GEN_DIR) --grpc_out=$(GEN_DIR) \
-	    --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN) $(PROTO_SRC)
+	    --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN) \
+		--experimental_allow_proto3_optional \
+		$(PROTO_SRC)
 
 # 2) 최종 링크는 반드시 g++ (C++ 오브젝트가 섞이므로)
 $(TARGET): $(OBJS)
