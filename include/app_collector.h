@@ -8,6 +8,8 @@ typedef struct {
     ServerList *server_list;
     //char metrics_path[128];
     //int worker_pool_size;
+    int debug;
+    int save_metrics;
 } AppCollectorConfig;
 
 Collector *app_collector_create(const AppCollectorConfig *config);
