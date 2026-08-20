@@ -1,99 +1,40 @@
 # Metric-Collector
 
-## 📌 Overview
-
-**Metric-Collector**는 시스템 및 클러스터의 상태 지표(metric)를 수집하여, MLP(의사결정 프로세스)가 판단을 내리는 데 필요한 데이터를 제공하는 프로세스입니다.
-
-전체 시스템은 아래와 같이 3개의 프로세스로 구성되며, Metric-Collector는 그 중 **데이터 수집을 담당하는 역할**을 맡습니다.
-
-```
-┌────────────────────┐      metrics      ┌──────────────────┐
-│  Metric-Collector   │ ───────────────▶  │    MLP Process    │
-│  (본 레포지토리)      │                    │  (의사결정 프로세스) │
-└─────────┬──────────┘                    └──────────────────┘
-          │
-          │ collects metrics from
-          ▼
-┌────────────────────┐
-│     Kubernetes      │
-│     (클러스터 상태)   │
-└────────────────────┘
-```
-
 ## 🎯 역할 (Role)
-
-- 시스템 리소스(CPU, Memory, Network 등) 및 Kubernetes 클러스터 상태 지표 수집
-- 수집한 metric을 가공하여 MLP 프로세스가 사용할 수 있는 형태로 전달
-- 향후 다양한 metric source(예: Prometheus 등) 확장을 고려한 모듈형 구조 지향
-
-## 📁 Directory Structure
-
-```
-Metric-Collector/
-├── include/                  # 헤더 파일 (공개 인터페이스, 구조체 정의)
-│   ├── metric.h               # Metric 구조체 및 공통 타입 정의
-│   ├── collector.h            # Collector 공통 인터페이스 (collect, flush 등)
-│   ├── kubernetes/
-│   │   └── k8s_client.h       # Kubernetes 연동 인터페이스
-│   └── mlp/
-│       └── mlp_client.h       # MLP 프로세스 연동 인터페이스
-│
-├── src/                       # 실제 구현 코드
-│   ├── main.c                  # 프로그램 진입점
-│   ├── metric.c                 # Metric 구조체 관련 로직 (생성/해제/변환 등)
-│   ├── kubernetes/
-│   │   └── k8s_client.c        # Kubernetes API 연동 구현
-│   └── mlp/
-│       └── mlp_client.c        # MLP 프로세스와의 통신 구현
-│
-├── tests/                     # 단위 테스트 (예정)
-│   ├── test_metric.c
-│   └── test_k8s_client.c
-│
-├── config/                    # 설정 파일 (예정)
-│   └── collector.conf
-│
-├── Makefile
-├── README.md
-└── .gitignore
-```
-
-### 폴더별 설명
-
-| 폴더/파일 | 설명 |
-|---|---|
-| `include/metric.h` | 수집되는 metric의 공통 구조체 및 타입 정의 |
-| `include/collector.h` | 여러 metric source(k8s, mlp 등)가 공통으로 따르는 인터페이스 정의 |
-| `include/kubernetes/`, `src/kubernetes/` | Kubernetes 클러스터로부터 상태 정보를 가져오는 로직 |
-| `include/mlp/`, `src/mlp/` | 수집한 metric을 MLP 프로세스로 전달하는 로직 |
-| `src/main.c` | 전체 흐름 제어 (수집 → 가공 → 전달) |
-| `tests/` | 각 모듈에 대한 단위 테스트 |
-| `config/` | 수집 주기, 대상 등 설정 값 관리 |
+ 
+- 각 edge node/pod에서 동작하는 metric agent(gRPC 서버)에 **지속 연결(스트림)** 을 맺고, 서버가 push하는 값을 실시간으로 수신
+- 서버(=pod 또는 node)별 최신 metric을 스레드 안전하게 캐싱
+- 주기적으로(`collect_interval_sec`) 캐시된 값을 모아 MLP 프로세스로 전달 *(현재 `main.c`에 인터페이스만 있고 실제 전송 로직은 TODO)*
+- `-s`(`--save-metrics`) 옵션 시, 서버별로 CSV 파일에 timestamp/CPU/메모리/시청자수(있는 경우)를 기록 — MLP 모델 학습용 데이터셋 수집 용도
+- `-d`(`--debug`) 옵션 시, 수신되는 metric을 표준출력에 실시간 로그로 출력
 
 ## 🛠 Build & Run
-
+ 
+### 요구 사항
+- gRPC / Protobuf 개발 패키지 (`grpc++`, `protobuf`) — `pkg-config`로 조회 가능해야 함
+- `protoc`, `grpc_cpp_plugin`
+### Build
 ```bash
-make
-./metric-collector
+make            # proto 코드 생성 → C/C++ 오브젝트 빌드 → 링크
+make clean      # build/, proto_gen/, 바이너리 삭제
+make rebuild    # clean + all
 ```
-
-## 🔗 관련 프로세스
-
-- **MLP Process**: Metric-Collector가 수집한 데이터를 기반으로 실제 의사결정을 수행하는 프로세스
-- **Kubernetes**: Metric-Collector가 상태 정보를 수집하는 대상 클러스터
-
-## 📋 브랜치 컨벤션
-
-| Prefix | 용도 |
+ 
+### Run
+```bash
+./metric-collector -c <config file> [-s|--save-metrics] [-d|--debug]
+```
+ 
+| 옵션 | 설명 |
 |---|---|
-| `feature/` | 새로운 기능 추가 |
-| `fix/` | 버그 수정 |
-| `refactor/` | 리팩토링 |
-| `docs/` | 문서/주석 관련 |
-
-## ✅ TODO
-
-- [ ] Kubernetes 연동 구현
-- [ ] MLP 통신 프로토콜 정의
-- [ ] 설정 파일(config) 로딩 기능
-- [ ] 단위 테스트 작성
+| `-c, --config <path>` | 필수. 수집 대상 서버 목록 등을 담은 config 파일 경로 |
+| `-s, --save-metrics` | 서버별 수신 metric을 `./data/`(또는 설정된 경로) 아래 CSV로 저장 |
+| `-d, --debug` | 수신되는 metric을 표준출력에 실시간 출력 |
+| `-h, --help` | 사용법 출력 |
+ 
+### Docker
+```bash
+docker build -t metric-collector:v1 .
+docker run --network host --rm -v $(pwd)/data:/app/data metric-collector:v1 -c /app/sample_collector.conf -s
+```
+클러스터 pod IP(flannel 오버레이 네트워크)로 접속해야 하므로, 컨테이너로 실행 시 `--network host`가 필요합니다 (master node에서 직접 실행할 경우).
