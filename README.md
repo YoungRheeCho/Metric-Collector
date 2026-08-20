@@ -35,6 +35,9 @@ make rebuild    # clean + all
 ### Docker
 ```bash
 docker build -t metric-collector:v1 .
-docker run --network host --rm -v $(pwd)/data:/app/data metric-collector:v1 -c /app/sample_collector.conf -s
+docker run --network host --rm \
+  -v $(pwd)/my_collector.conf:/app/sample_collector.conf:ro \
+  -v $(pwd)/data:/app/data \
+  metric-collector:v1 -s -d
 ```
 클러스터 pod IP(flannel 오버레이 네트워크)로 접속해야 하므로, 컨테이너로 실행 시 `--network host`가 필요합니다 (master node에서 직접 실행할 경우).
