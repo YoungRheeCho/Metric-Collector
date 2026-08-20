@@ -51,13 +51,25 @@ int main(int argc, char *argv[]) {
     const char *config_path = NULL;
 
     static struct option long_options[] = {
-        {"config", required_argument, NULL, 'c'}, {"help", no_argument, NULL, 'h'}, {NULL, 0, NULL, 0}};
-
+        {"config", required_argument, NULL, 'c'},
+        {"save-metrics", no_argument, NULL, 's'},
+        {"debug", no_argument, NULL, 'd'},
+        {"help", no_argument, NULL, 'h'},
+        {NULL, 0, NULL, 0}
+    };
+    int save_metrics = 0;
+    int debug = 0;
     int opt;
-    while ((opt = getopt_long(argc, argv, "c:h", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "c:sdh", long_options, NULL)) != -1) {
         switch (opt) {
             case 'c':
                 config_path = optarg;
+                break;
+            case 's':
+                save_metrics = 1;
+                break;
+            case 'd':
+                debug = 1;
                 break;
             case 'h':
                 printf("사용법: %s -c <config file>\n", argv[0]);
@@ -96,30 +108,11 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "에러: 서버 목록 설정 실패 (서버 개수 초과 가능성)\n");
         return 1;
     }
-    // ---- 테스트용 하드코딩 ----
-    // strncpy(g_server_list.servers[0].ip, "127.0.0.1", sizeof(g_server_list.servers[0].ip) - 1);
-    // g_server_list.servers[0].ip[sizeof(g_server_list.servers[0].ip) - 1] = '\0';
-    // g_server_list.servers[0].port = 50051;
-    // atomic_store(&g_server_list.servers[0].status, SERVER_STATUS_UP);
-    // g_server_list.count = 1;
-    // // -------------------------
-
-    /*RefresherArgs refresher_args = {
-        .channel = server_source,
-        .list = &g_server_list,
-        .interval_sec = cfg.refresh_interval_sec,
-        .running = &running,
-    };
-
-    pthread_t refresher_thread;
-    if (pthread_create(&refresher_thread, NULL, refresher_main, &refresher_args) != 0) {
-        fprintf(stderr, "에러: 갱신 스레드 생성 실패\n");
-        server_source->close(server_source);
-        return 1;
-    }*/
 
     AppCollectorConfig app_cfg = {
         .server_list = &g_server_list,
+        .save_metrics = save_metrics,
+        .debug = debug,
     };
 
     Collector *collector = app_collector_create(&app_cfg);

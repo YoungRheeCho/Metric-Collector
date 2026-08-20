@@ -11,123 +11,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-
-/*typedef struct {
-    AppCollectorConfig config;
-
-    pthread_t *threads;
-    int thread_count;
-
-    pthread_mutex_t mutex;
-    pthread_cond_t cond_start;
-    pthread_cond_t cond_done;
-    int generation;
-    int active_workers;
-    int shutdown;
-
-    ServerSlot *cur_servers;
-    size_t cur_server_count;
-    atomic_size_t next_server_index;
-
-    Metric *cur_out;
-    size_t cur_max_count;
-    atomic_size_t out_index;
-} AppCollectorState;
-
-static int fetch_metrics_from_server(const ServerSlot *server, const AppCollectorConfig *cfg, Metric *out_system,
-                                     Metric *out_app_perf) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0)
-        return -1;
-
-    struct timeval timeout = {.tv_sec = 2, .tv_usec = 0};
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons((uint16_t)cfg->server_list->servers->port);
-    if (inet_pton(AF_INET, server->ip, &addr.sin_addr) != 1) {
-        close(sock);
-        return -1;
-    }
-
-    if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-        close(sock);
-        return -1;
-    }
-
-    char request[256];
-    int req_len = snprintf(request, sizeof(request), "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n",
-                           cfg->metrics_path, server->ip);
-    if (req_len < 0 || write(sock, request, (size_t)req_len) < 0) {
-        close(sock);
-        return -1;
-    }
-
-    char response[4096];
-    ssize_t total = 0;
-    ssize_t n;
-    while ((n = read(sock, response + total, sizeof(response) - (size_t)total - 1)) > 0) {
-        total += n;
-        if (total >= (ssize_t)sizeof(response) - 1)
-            break;
-    }
-    close(sock);
-
-    if (total <= 0)
-        return -1;
-    response[total] = '\0';
-
-    // TODO: response를 실제로 파싱해서 아래 값들을 채우기
-    *out_system = metric_create_system(0, 0.0, 0.0, "", 0.0);
-    *out_app_perf = metric_create_app_perf(0, 0, 0.0, 0.0);
-
-    return 0;
-}
-
-static void *worker_main(void *arg) {
-    AppCollectorState *pool = (AppCollectorState *)arg;
-    int cur_gen = 0;
-
-    pthread_mutex_lock(&pool->mutex);
-    for (;;) {
-        while (pool->generation == cur_gen && !pool->shutdown) {
-            pthread_cond_wait(&pool->cond_start, &pool->mutex);
-        }
-        if (pool->shutdown) {
-            pthread_mutex_unlock(&pool->mutex);
-            return NULL;
-        }
-        cur_gen = pool->generation;
-        pthread_mutex_unlock(&pool->mutex);
-
-        for (;;) {
-            size_t idx = atomic_fetch_add(&pool->next_server_index, 1);
-            if (idx >= pool->cur_server_count)
-            break;
-            if (atomic_load(&pool->cur_servers[idx].status) != SERVER_STATUS_UP)
-            continue;
-
-            //server에 접근해서 metric을 수집해옴(fetch)
-            Metric sys_m, perf_m;
-            if (fetch_metrics_from_server(&pool->cur_servers[idx], &pool->config, &sys_m, &perf_m) == 0) {
-                size_t out_idx = atomic_fetch_add(&pool->out_index, 2);
-                if (out_idx + 1 < pool->cur_max_count) {
-                    pool->cur_out[out_idx] = sys_m;
-                    pool->cur_out[out_idx + 1] = perf_m;
-                }
-            }
-        }
-
-        pthread_mutex_lock(&pool->mutex);
-        pool->active_workers--;
-        if (pool->active_workers == 0) {
-            pthread_cond_signal(&pool->cond_done);
-        }
-    }
-}*/
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
 
 typedef struct {
     pthread_mutex_t mtx;
@@ -135,15 +21,18 @@ typedef struct {
     int valid;
 } MetricSlot;
 
+typedef struct AppCollectorState AppCollectorState;
 // 스트림 하나(=서버 하나)를 관리하는 단위
 typedef struct {
     char ip[16];
     int port;
     MetricSlot *slot;    // 이 스트림이 값을 채워넣을 캐시 슬롯
     void *stream_handle; // start_stream()이 리턴한 핸들 (정리용)
+    FILE *log_file;
+    AppCollectorState *owner;
 } StreamEntry;
 
-typedef struct {
+struct AppCollectorState{
     AppCollectorConfig config;
     size_t server_count;
 
@@ -151,27 +40,53 @@ typedef struct {
     StreamEntry *streams; // 서버별 stream_handle 등 관리용
     pthread_mutex_t streams_mutex;
 
+    int save_metrics;
     int shutdown; // 종료 중인지 플래그 (재연결 여부 판단용)
-} AppCollectorState;
+} ;
 
 static void on_update(const SystemInfo *info, void *server_data) {
     StreamEntry *entry = (StreamEntry *)server_data;
 
     pthread_mutex_lock(&entry->slot->mtx);
     entry->slot->info = *info;
-
-    printf("CPU 사용률: %.2f%% | 메모리 사용률: %.2f%% (%.1f MB / %.1f MB) | 이용자 수: %d명 시청중\n", info->cpu_util_percent,
-           info->mem_util_percent, info->mem_used_mb, info->mem_total_mb);
-    
-    info->has_viewer_count ? printf("| 이용자 수: %d명 시청중\n", info->viewer_count) : printf("| [Node Data]\n");
     entry->slot->valid = 1;
+    if(entry->owner->config.debug){
+        printf("CPU 사용률: %.2f%% | 메모리 사용률: %.2f%% (%.1f MB / %.1f MB)", info->cpu_util_percent, info->mem_util_percent, info->mem_used_mb, info->mem_total_mb);    
+        info->has_viewer_count ? printf("| 이용자 수: %d명 시청중\n", info->viewer_count) : printf("| [Node Data]\n");
+    }
+    
     pthread_mutex_unlock(&entry->slot->mtx);
+
+    if (entry->log_file) {
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        long long ts_ms = (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
+        if (info->has_viewer_count) {
+            fprintf(entry->log_file, "%lld,%.2f,%.2f,%d\n",
+                    ts_ms, info->cpu_util_percent, info->mem_util_percent, info->viewer_count);
+        } else {
+            fprintf(entry->log_file, "%lld,%.2f,%.2f,\n",
+                    ts_ms, info->cpu_util_percent, info->mem_util_percent);
+        }
+    }
 }
 
 static int app_init(Collector *self) {
     AppCollectorState *state = (AppCollectorState *)self->impl_data;
+    state->save_metrics = state->config.save_metrics;
     pthread_mutex_init(&state->streams_mutex, NULL);
     //server_list_init(state->config.server_list);
+
+    // 저장 모드면, 서버별 파일 열기 전에 디렉토리부터 확보
+    if (state->save_metrics) {
+        if (mkdir("data", 0755) != 0 && errno != EEXIST) {
+            fprintf(stderr, "app_collector: 로그 디렉토리 생성 실패 (%s): %s\n",
+                    "data", strerror(errno));
+            state->save_metrics = 0;  // 디렉토리 확보 실패 시 저장 자체를 끄고 나머지는 정상 진행
+        }
+    }
+
     ServerSlot servers[MAX_SERVERS];
     size_t server_count = 0;
     server_list_snapshot(state->config.server_list, servers, MAX_SERVERS, &server_count);
@@ -188,6 +103,26 @@ static int app_init(Collector *self) {
         strncpy(state->streams[i].ip, servers[i].ip, sizeof(state->streams[i].ip));
         state->streams[i].port = servers[i].port;
         state->streams[i].slot = &state->slots[i];
+        state->streams[i].log_file = NULL;
+        state->streams[i].owner = state;
+
+        if (state->save_metrics) {
+            char path[256];
+            time_t now = time(NULL);
+            struct tm tm_buf;
+            localtime_r(&now, &tm_buf);
+            snprintf(path, sizeof(path), "./data/%s_%d_%04d%02d%02d_%02d%02d%02d.csv",
+                    servers[i].ip, servers[i].port,
+                    tm_buf.tm_year + 1900, tm_buf.tm_mon + 1, tm_buf.tm_mday,
+                    tm_buf.tm_hour, tm_buf.tm_min, tm_buf.tm_sec);
+
+            state->streams[i].log_file = fopen(path, "w");
+            if (state->streams[i].log_file) {
+                fprintf(state->streams[i].log_file, "timestamp,cpu_util,mem_util,viewer_count\n");
+            } else {
+                fprintf(stderr, "app_collector: 로그 파일 열기 실패: %s\n", path);
+            }
+        }
 
         char addr[64];
         snprintf(addr, sizeof(addr), "%s:%d", state->streams[i].ip, state->streams[i].port);
