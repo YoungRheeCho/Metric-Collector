@@ -1,6 +1,6 @@
 # Metric-Collector
 
-## 🎯 역할 (Role)
+## 역할 (Role)
  
 - 각 edge node/pod에서 동작하는 metric agent(gRPC 서버)에 **지속 연결(스트림)** 을 맺고, 서버가 push하는 값을 실시간으로 수신
 - 서버(=pod 또는 node)별 최신 metric을 스레드 안전하게 캐싱
@@ -8,7 +8,7 @@
 - `-s`(`--save-metrics`) 옵션 시, 서버별로 CSV 파일에 timestamp/CPU/메모리/시청자수(있는 경우)를 기록 — MLP 모델 학습용 데이터셋 수집 용도
 - `-d`(`--debug`) 옵션 시, 수신되는 metric을 표준출력에 실시간 로그로 출력
 
-## 🛠 Build & Run
+## Build & Run
  
 ### 요구 사항
 - gRPC / Protobuf 개발 패키지 (`grpc++`, `protobuf`) — `pkg-config`로 조회 가능해야 함
@@ -35,9 +35,9 @@ make rebuild    # clean + all
 ### Docker
 ```bash
 docker build -t metric-collector:v1 .
-docker run --network host --rm \
-  -v $(pwd)/my_collector.conf:/app/sample_collector.conf:ro \
-  -v $(pwd)/data:/app/data \
-  metric-collector:v1 -s -d
+sudo docker run   --network host   
+  -v ~/.kube/config:/root/.kube/config:ro
+  -v /home/n2sl/test/metric.conf:/app/sample_collector.conf:ro
+  -v /home/n2sl/test/data:/app/data   ghcr.io/youngrheecho/metric-collector:v3   -c /app/sample_collector.conf -d
 ```
 클러스터 pod IP(flannel 오버레이 네트워크)로 접속해야 하므로, 컨테이너로 실행 시 `--network host`가 필요합니다 (master node에서 직접 실행할 경우).
