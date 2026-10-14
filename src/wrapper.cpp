@@ -41,6 +41,8 @@ public:
         info.mem_util_percent = response_.mem_util_percent();
         info.mem_total_mb = response_.mem_total_mb();
         info.mem_used_mb = response_.mem_used_mb();
+        info.tx_bytes = response_.tx_bytes();
+        info.tx_drop = response_.tx_drop();
         info.has_viewer_count = response_.has_viewer_count();
         if (info.has_viewer_count) {
             info.viewer_count = response_.viewer_count();

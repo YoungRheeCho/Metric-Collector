@@ -24,7 +24,9 @@ int config_load(const char *path, Config *out) {
     strncpy(out->metrics_path, "/metrics", sizeof(out->metrics_path) - 1);
     out->worker_pool_size = 1;
     out->collect_interval_sec = 5;
-    out->server_count = 0;
+    //out->server_count = 0;
+    out->pod_server_count;
+    out->node_server_count;
     //out->mlp_ring_capacity = 256;
 
     FILE *fp = fopen(path, "r");
@@ -63,7 +65,7 @@ int config_load(const char *path, Config *out) {
         } else if(strcmp(key, "refresh_interval_sec") == 0){
             out->refresh_interval_sec = atoi(value);
         } else if (strcmp(key, "server") == 0) {  
-            if (out->server_count >= MAX_SERVERS) {
+            /*if (out->server_count >= MAX_SERVERS) {
                 fprintf(stderr, "config_load: 서버 개수가 MAX_CONFIG_SERVERS(%d)를 초과함\n",
                         MAX_SERVERS);
                 continue;
@@ -82,7 +84,7 @@ int config_load(const char *path, Config *out) {
             entry->ip[sizeof(entry->ip) - 1] = '\0';
             entry->port = atoi(port_str);
             atomic_store(&entry->status, SERVER_STATUS_UP);
-            out->server_count++;
+            out->server_count++;*/
         }/*else if (strcmp(key, "mlp_ring_capacity") == 0) {
             out->mlp_ring_capacity = (size_t)atol(value);
         }*/

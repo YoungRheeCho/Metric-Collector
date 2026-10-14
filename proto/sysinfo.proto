@@ -13,10 +13,68 @@ message ViewerCountRequest {
   uint32 viewer_count = 1;
 }
 
+// [split] 값은 모두 sysinfo가 읽은 그대로(누적값/현재값)를 보낸다. 비율·증가량은 수집 서버에서 계산.
+//   누적값이 직전보다 작아지면 리셋(컨테이너 재시작, 32비트 카운터 넘침 등)으로 처리해야 한다.
+//   하위 메시지가 비어 있으면(has_xxx() == false) 그 값을 읽지 못한 것이다 (0과 구분).
 message SystemInfoResponse {
-  double cpu_util_percent = 1;   // CPU 사용률 (%)
-  double mem_util_percent = 2;   // 메모리 사용률 (%)
-  double mem_total_mb = 3;       // 전체 메모리 (MB)
-  double mem_used_mb = 4;        // 사용 중인 메모리 (MB)
-  optional uint32 viewer_count = 5;   //pod 서버에서만 사용하는 값
+  // 예전 필드: cpu_util_percent, mem_util_percent, mem_total_mb, mem_used_mb, tx_bytes(증가량), tx_drop(증가량),
+  //            cpu_nr_periods, cpu_nr_throttled, cpu_throttled_usec → 아래 sample 안으로 옮김
+  reserved 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
+
+  oneof sample {                      // METRIC_MODE에 따라 하나만 채움
+    NodeSample node = 20;
+    ContainerSample container = 21;
+  }
+}
+
+// ---- 공통 ----
+message NetCounters {     // /proc/net/dev 누적
+  uint64 tx_bytes = 1;
+  uint64 tx_packets = 2;
+  uint64 tx_drop = 3;
+}
+
+message Mem {             // 현재값
+  double used_mb = 1;
+  double total_mb = 2;    // container에서 memory.max = max면 -1
+}
+
+// ---- node 모드 (hostNetwork) ----
+message ProcCpu {         // /proc/stat 첫 줄 누적 (jiffies), 사용률 = 1 - Δidle/Δtotal
+  int64 idle = 1;         // idle + iowait
+  int64 total = 2;
+}
+
+message Qdisc {           // 물리 NIC root qdisc (tc -s qdisc 와 같은 값)
+  string kind = 1;        // "mq", "fq_codel" ...
+  uint64 bytes = 2;       // 누적
+  uint32 packets = 3;     // 누적 (32비트)
+  uint32 qlen = 4;        // 현재값 (패킷)
+  uint32 backlog = 5;     // 현재값 (바이트)
+  uint32 drops = 6;       // 누적 (32비트)
+  uint32 requeues = 7;    // 누적
+  uint32 overlimits = 8;  // 누적
+}
+
+message NodeSample {
+  ProcCpu cpu = 1;
+  Mem mem = 2;
+  NetCounters net = 3;    // 물리 NIC
+  Qdisc qdisc = 4;
+}
+
+// ---- container 모드 (mediasoup pod 사이드카) ----
+message CgroupCpu {       // 대상 컨테이너 cgroup
+  uint64 usage_usec = 1;      // cpu.stat 누적 (us), 사용 코어 = Δusage_usec / Δ시간(us)
+  double limit_cores = 2;     // cpu.max quota/period, 무제한이면 -1
+  uint64 nr_periods = 3;      // cpu.stat 누적
+  uint64 nr_throttled = 4;    // cpu.stat 누적, throttled 비율 = Δnr_throttled / Δnr_periods
+  uint64 throttled_usec = 5;  // cpu.stat 누적 (us)
+}
+
+message ContainerSample {
+  CgroupCpu cpu = 1;      // 대상 컨테이너를 못 찾았으면 비어 있음
+  Mem mem = 2;            // 대상 컨테이너를 못 찾았으면 비어 있음
+  NetCounters net = 3;    // pod 네트워크
+  uint32 viewer_count = 4;   // 추가
 }

@@ -13,6 +13,8 @@ typedef struct {
     double mem_util_percent;
     double mem_total_mb;
     double mem_used_mb;
+    uint64_t tx_bytes;
+    uint64_t tx_drop;
 
     bool has_viewer_count;      // 값이 존재하는지
     uint32_t viewer_count;      // 실제 값 (has_viewer_count가 true일 때만 유효)

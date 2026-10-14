@@ -1,6 +1,6 @@
 # Metric-Collector
 
-## 🎯 역할 (Role)
+## 역할 (Role)
  
 - 각 edge node/pod에서 동작하는 metric agent(gRPC 서버)에 **지속 연결(스트림)** 을 맺고, 서버가 push하는 값을 실시간으로 수신
 - 서버(=pod 또는 node)별 최신 metric을 스레드 안전하게 캐싱

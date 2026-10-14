@@ -12,6 +12,8 @@
 #include "config.h"
 #include "metric.h"
 #include "shared_types.h"
+#include "k8s_creds.h"
+#include "k8s_discovery.h"
 
 #define MAX_METRICS_PER_CYCLE (MAX_SERVERS * 2) /* 서버당 SystemMetric + AppPerfMetric */
 #define SHM_DIR "/dev/shm"
@@ -91,26 +93,31 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // HAProxy 서버 목록 채널: 이미 존재하는 shared memory에서 읽어옴
-    /*Channel *server_source =
-        shm_channel_create(cfg.haproxy_shm_name, sizeof(ServerSlot), MAX_SERVERS, 0, 0);
-    if (!server_source || server_source->init(server_source) != 0) {
-        fprintf(stderr, "에러: HAProxy shared memory에 연결할 수 없습니다 (%s)\n",
-                cfg.haproxy_shm_name);
+    K8sCreds creds;
+    if (k8s_creds_load(NULL, &creds) == 0) {
+        discover_servers(&creds, &cfg);
+        k8s_creds_free(&creds);
+    } else {
+        fprintf(stderr, "k8s discovery 실패, server 목록 비어있음\n");
+    }
+
+    ServerList g_node_server_list;
+    server_list_init(&g_node_server_list);
+    if (server_list_set(&g_node_server_list, cfg.node_servers, cfg.node_server_count) != 0) {
+        fprintf(stderr, "에러: 서버 목록 설정 실패 (서버 개수 초과 가능성)\n");
         return 1;
     }
-    printf("[main] shared memory 연결 성공: %s\n", cfg.haproxy_shm_name);*/
-
-    ServerList g_server_list;
-    server_list_init(&g_server_list);
-    server_list_set(&g_server_list, cfg.servers, cfg.server_count);
-    if (server_list_set(&g_server_list, cfg.servers, cfg.server_count) != 0) {
+    
+    ServerList g_pod_server_list;
+    server_list_init(&g_pod_server_list);
+    if (server_list_set(&g_pod_server_list, cfg.pod_servers, cfg.pod_server_count) != 0) {
         fprintf(stderr, "에러: 서버 목록 설정 실패 (서버 개수 초과 가능성)\n");
         return 1;
     }
 
     AppCollectorConfig app_cfg = {
-        .server_list = &g_server_list,
+        .node_server_list = &g_node_server_list,
+        .pod_server_list = &g_pod_server_list,
         .save_metrics = save_metrics,
         .debug = debug,
     };

@@ -5,7 +5,8 @@
 #include "collector.h"
 
 typedef struct {
-    ServerList *server_list;
+    ServerList *node_server_list;
+    ServerList *pod_server_list;
     //char metrics_path[128];
     //int worker_pool_size;
     int debug;
