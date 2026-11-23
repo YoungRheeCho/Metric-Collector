@@ -1,0 +1,16 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+# 중괄호를 새 줄이 아니라 같은 줄에 붙임 (while (...) { 형태)
+BreakBeforeBraces: Attach
+
+# case를 switch보다 한 단계 더 들여씀
+IndentCaseLabels: true
+
+# 필요하면 아래도 취향에 맞게 조정하세요
+AllowShortIfStatementsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+SpaceBeforeParens: ControlStatements

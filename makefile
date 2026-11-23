@@ -3,7 +3,7 @@ CXX      := g++
 CFLAGS   := -Wall -Wextra -Wswitch -std=gnu11 -Iinclude -MMD -MP
 CXXFLAGS := -Wall -Wextra -std=c++17 -Iinclude -Iproto_gen -MMD -MP \
             $(shell pkg-config --cflags grpc++ protobuf)
-LDFLAGS  := -lpthread -lrt $(shell pkg-config --libs grpc++ protobuf) -ldl -lcurl -lcjson
+LDFLAGS  := -lpthread -lrt $(shell pkg-config --libs grpc++ protobuf) -ldl -lcurl -lcjson -l_lightgbm -lm
 
 SRC_DIR    := src
 PROTO_DIR  := proto

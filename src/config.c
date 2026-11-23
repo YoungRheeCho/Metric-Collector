@@ -23,7 +23,6 @@ int config_load(const char *path, Config *out) {
     /* 기본값 */
     strncpy(out->metrics_path, "/metrics", sizeof(out->metrics_path) - 1);
     out->worker_pool_size = 1;
-    out->collect_interval_sec = 5;
     //out->server_count = 0;
     out->pod_server_count;
     out->node_server_count;
@@ -58,12 +57,12 @@ int config_load(const char *path, Config *out) {
             strncpy(out->metrics_path, value, sizeof(out->metrics_path) - 1);
         } else if (strcmp(key, "worker_pool_size") == 0) {
             out->worker_pool_size = atoi(value);
-        } else if (strcmp(key, "collect_interval_sec") == 0) {
-            out->collect_interval_sec = atoi(value);
         } else if (strcmp(key, "mlp_shm_name") == 0) {
             strncpy(out->mlp_shm_name, value, sizeof(out->mlp_shm_name) - 1);
         } else if(strcmp(key, "refresh_interval_sec") == 0){
             out->refresh_interval_sec = atoi(value);
+        } else if (strcmp(key, "dashboard_url") == 0) {
+            strncpy(out->dashboard_url, value, sizeof(out->dashboard_url) - 1);
         } else if (strcmp(key, "server") == 0) {  
             /*if (out->server_count >= MAX_SERVERS) {
                 fprintf(stderr, "config_load: 서버 개수가 MAX_CONFIG_SERVERS(%d)를 초과함\n",
