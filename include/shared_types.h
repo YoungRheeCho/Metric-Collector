@@ -13,6 +13,8 @@ typedef enum {
 typedef struct {
     char ip[16];
     int port;
+    char node_key[16];
+    char name[64];
     atomic_int status;
 } ServerSlot;
 

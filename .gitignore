@@ -2,3 +2,11 @@
 .claude/
 CLAUDE.md
 CLAUDE.local.md
+
+# 빌드 결과물
+build/
+/metric-collector
+tests/test_config
+
+# 실행 중 생성되는 CSV/로그
+data/
