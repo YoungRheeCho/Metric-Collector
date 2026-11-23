@@ -1,6 +1,5 @@
-# Claude Code
-.claude/
-CLAUDE.md
+# Claude Code (CLAUDE.md, .claude/settings.json은 공유, 개인 설정만 제외)
+.claude/settings.local.json
 CLAUDE.local.md
 
 # 빌드 결과물
